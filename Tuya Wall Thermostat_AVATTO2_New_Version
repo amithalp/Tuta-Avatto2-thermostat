@@ -22,9 +22,9 @@
  * 
  *  Credits: @kkossev, Jaewon Park, iquix and many others
  * 
- * ver. 1.1.0 2024-04-19 	amithalp  - Inital stripped down version 
- * ver. 1.1.1 2024-01-20	amithalp  - Add frost protection and ForceManual functionality, set default thermostatFanMode=auto and some code cleaning
- * ver. 1.1.2 2024-01-20	amithalp  - Add support for changing fanMode from dashboard or device page in Hubitat
+ * ver. 1.1.0 2024-04-18 	amithalp  - Inital stripped down version 
+ * ver. 1.1.1 2024-01-19	amithalp  - Add frost protection and ForceManual functionality, set default thermostatFanMode=auto and some code cleaning
+ * ver. 1.1.2 2024-01-19	amithalp  - Add support for changing fanMode from dashboard or device page in Hubitat
 
  *          Remarks by amithalp when working on this driver to make it fit the AVATTO2 (manufacturer: _TZE204_lzriup1j)
              tuyaDatapoints: [
@@ -67,7 +67,7 @@
 */
 
 def version() { "1.1.2" }
-def timeStamp() {"20/01/2025 22:10"}
+def timeStamp() {"19/01/2025 22:10"}
 
 import groovy.json.*
 import groovy.transform.Field
@@ -1183,25 +1183,38 @@ def logInitializeRezults() {
     logInfo "Initialization finished\r                          version=${version()} (Timestamp: ${timeStamp()})"
 }
 
-// called by initialize() button
-void initializeVars(boolean fullInit = true) {
-    logInfo "Initializing variables... Full Init = ${fullInit}"
-    if (fullInit) {
+void initializeVars( boolean fullInit = true ) {
+    if (settings?.txtEnable) log.info "${device.displayName} InitializeVars()... fullInit = ${fullInit}"
+    if (fullInit == true ) {
         state.clear()
         resetStats()
         state.driverVersion = driverVersionAndTimeStamp()
     }
-    state.notPresentCounter = state.notPresentCounter ?: 0
-    state.packetID = state.packetID ?: 0
-    state.lastThermostatMode = state.lastThermostatMode ?: "unknown"
-    state.lastThermostatOperatingState = state.lastThermostatOperatingState ?: "unknown"
-
-    // Default preferences
-    settings?.each { key, value -> settings[key] = value ?: defaultSettings[key] }
-    logInfo "Variables initialized."
+    if (device.currentValue('healthStatus') == null) sendHealthStatusEvent('unknown')    
+    //
+    setLastRx( NOT_SET, NOT_SET)    // -1
+    state.packetID = 0
+    //
+    if (fullInit == true || state.lastThermostatMode == null) state.lastThermostatMode = "unknown"
+    if (fullInit == true || state.lastThermostatOperatingState == null) state.lastThermostatOperatingState = "unknown"
+    if (fullInit == true || state.notPresentCounter == null) state.notPresentCounter = 0
+    //
+    if (fullInit == true || settings?.logEnable == null) device.updateSetting("logEnable", true)
+    if (fullInit == true || settings?.txtEnable == null) device.updateSetting("txtEnable", true)
+    if (fullInit == true || settings?.forceManual == null) device.updateSetting("forceManual", false)    
+    if (fullInit == true || settings?.resendFailed == null) device.updateSetting("resendFailed", false)    
+   // if (fullInit == true || settings?.minTemp == null) device.updateSetting("minTemp", [value: 5 , type:"number"])    
+    if (fullInit == true || settings?.maxTemp == null) device.updateSetting("maxTemp", [value: 35 , type:"number"])
+    if (fullInit == true || settings?.tempCeiling == null) device.updateSetting("tempCeiling", [value: 35 , type:"number"])
+    if (fullInit == true || settings?.tempCalibration == null) device.updateSetting("tempCalibration", [value:0.0, type:"decimal"])
+   // if (fullInit == true || settings?.hysteresis == null) device.updateSetting("hysteresis", [value:1.0, type:"decimal"])
+    //if (fullInit == true || settings?.sound == null) device.updateSetting("sound", true)    
+    if (fullInit == true || settings?.frostProtection == null) device.updateSetting("frostProtection", true)    
+    if (fullInit == true || settings?.brightness == null) device.updateSetting("brightness", [value:"3", type:"enum"])
+    if (fullInit == true || settings?.homeKitCompatibility == null) device.updateSetting("homeKitCompatibility", true)    
+    
+    //
 }
-
-
 
 def setDeviceLimits() { // for google and amazon compatability
     sendEvent(name:"minHeatingSetpoint", value: settings.minTemp ?: 5, unit: "°C", isStateChange: true)
