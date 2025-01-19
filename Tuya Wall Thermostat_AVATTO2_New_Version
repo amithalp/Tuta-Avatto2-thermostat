@@ -23,7 +23,7 @@
  *  Credits: @kkossev, Jaewon Park, iquix and many others
  * 
  * ver. 1.1.0 2024-04-19 	amithalp  - Inital stripped down version 
- * ver. 1.1.1 2024-01-20	amithalp  - Add frost protection and ForceManual functionality, set thermostatFanMode=auto and some code cleaning
+ * ver. 1.1.1 2024-01-20	amithalp  - Add frost protection and ForceManual functionality, set default thermostatFanMode=auto and some code cleaning
 
  *          Remarks by amithalp when working on this driver to make it fit the AVATTO2 (manufacturer: _TZE204_lzriup1j)
              tuyaDatapoints: [
@@ -802,7 +802,7 @@ def on() {
     heat()
 }
 
-//def setThermostatFanMode(fanMode) { sendEvent(name: "thermostatFanMode", value: "${fanMode}", descriptionText: getDescriptionText("thermostatFanMode is ${fanMode}")) }
+def setThermostatFanMode(fanMode) { sendEvent(name: "thermostatFanMode", value: "${fanMode}", descriptionText: getDescriptionText("thermostatFanMode is ${fanMode}")) }
 
 //def auto() { setThermostatMode("auto") }
 //def emergencyHeat() { setThermostatMode("emergency heat") }
