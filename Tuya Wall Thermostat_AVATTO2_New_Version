@@ -24,6 +24,7 @@
  * 
  * ver. 1.1.0 2024-04-19 	amithalp  - Inital stripped down version 
  * ver. 1.1.1 2024-01-20	amithalp  - Add frost protection and ForceManual functionality, set default thermostatFanMode=auto and some code cleaning
+ * ver. 1.1.2 2024-01-20	amithalp  - Add support for changing fanMode from dashboard or device page in Hubitat
 
  *          Remarks by amithalp when working on this driver to make it fit the AVATTO2 (manufacturer: _TZE204_lzriup1j)
              tuyaDatapoints: [
@@ -65,8 +66,8 @@
                 // Sat-Sun: 8:05 --> 20C, 23:00 --> 16C
 */
 
-def version() { "1.1.1" }
-def timeStamp() {"18/01/2025 23:00"}
+def version() { "1.1.2" }
+def timeStamp() {"20/01/2025 22:10"}
 
 import groovy.json.*
 import groovy.transform.Field
