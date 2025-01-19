@@ -1,10 +1,7 @@
 /**
  * amithalp -
  *    This driver is a stripped down version of @kkossev driver for Tuya wall themostats. The original driver did not support AVATTO2 model so I need to update the code.
- *    Things to do - thermostatOperatingState - check what to present (ON/OFF or Idle/Heat) -DONE
- *              - invert relay option - parameter 7 on the thermostat menu allows to invert from NC to NO. Need to make the driver show the current value in the device page (NO or NC) and allow changing from the device page - DONE
- *              - Check how allow changing the setpoint temp using the dashboard tile with 0.5 C increment - DONE
- *              - Fix the driver so when you increase setpoint value from the thermostat itself it does not send the value 30 but the correct value - COULD NOT REPLICATE
+ *    Things to do - 
  *              - Check why brighness become low after a few seconds even if you set it to high
  *              - invert relay option - what happens when doing factory reset and initializa - FACTORY RESET WILL CHANGE THE RELAY STATE TO NO. INITIALIZE WILL NOT CHANGE RELAY STATE
 
@@ -25,8 +22,8 @@
  * 
  *  Credits: @kkossev, Jaewon Park, iquix and many others
  * 
- * ver. 1.1.0 2024-04-19 amithalp  - Inital stripped down version 
- * ver. 1.1.1 _________	 amithalp  - Add frost protection and ForceManual functionality, set thermostatFanMode=auto and some code cleaning
+ * ver. 1.1.0 2024-04-19 	amithalp  - Inital stripped down version 
+ * ver. 1.1.1 2024-01-20	amithalp  - Add frost protection and ForceManual functionality, set thermostatFanMode=auto and some code cleaning
 
  *          Remarks by amithalp when working on this driver to make it fit the AVATTO2 (manufacturer: _TZE204_lzriup1j)
              tuyaDatapoints: [
@@ -124,7 +121,7 @@ metadata {
         command "initialize", [[name: "Initialize the thermostat after switching drivers.  \n\r   ***** Will load device default values! *****" ]]
         command "childLock",  [[name: "ChildLock", type: "ENUM", constraints: ["off", "on"], description: "Select Child Lock mode"] ]
         //command "windowOpenDetection",  [[name: "windowOpenDetection", type: "ENUM", constraints: ["off", "on"], description: "Select Window Open Detection mode"] ]
-        command "setBrightness",  [[name: "setBrightness", type: "ENUM", constraints: ["off", "low", "medium", "high"], description: "Set LCD brightness for BEOK thermostats"] ]
+        command "setBrightness",  [[name: "setBrightness", type: "ENUM", constraints: ["off", "low", "medium", "high"], description: "Set LCD brightness"] ]
         command "setRelayState",  [[name: "setRelayState", type: "ENUM", constraints: ["NO", "NC"], description: "Set relay to act as NO or NC"] ]
         //command "sensorSelection",  [[name: "sensorSelection", type: "ENUM", constraints: ["99":"--- Select ---"] + sensorOptions, description: "Select the temperature sensor"] ]
         command "factoryReset", [[name:"factoryReset", type: "STRING", description: "Type 'YES'", constraints: ["STRING"]]]
@@ -141,7 +138,7 @@ metadata {
             input (name: "resendFailed", type: "bool", title: "<b>Resend failed commands</b>", description: "<i>If the thermostat does not change the Setpoint or Mode as expected, then commands will be resent automatically</i>", defaultValue: false)
             input (name: "minTemp", type: "number", title: "<b>Minimum Temperature</b>", description: "<i>The Minimum temperature setpoint that can be sent to the device</i>", defaultValue: 5, range: "0..60")
             input (name: "maxTemp", type: "number", title: "<b>Maximum Temperature</b>", description: "<i>The Maximum temperature setpoint that can be sent to the device</i>", defaultValue: 35, range: "15..95")
-            input (name: "modelGroupPreference", title: "Select a model group. Recommended value is <b>'Auto detect'</b>", /*description: "<i>Thermostat type</i>",*/ type: "enum", options:["Auto detect":"Auto detect", "AVATTO":"AVATTO", "AVATTO2":"AVATTO2", "MOES":"MOES", "BEOK":"BEOK", "BRT-100":"BRT-100", "HY367":"HY367", "HY369":"HY369", "TRV07":"TRV07"], defaultValue: "Auto detect", required: false)        
+            input (name: "modelGroupPreference", title: "Select a model group. Recommended value is <b>'Auto detect'</b>", /*description: "<i>Thermostat type</i>",*/ type: "enum", options:["Auto detect":"Auto detect", "AVATTO2":"AVATTO2"], defaultValue: "Auto detect", required: false)        
             input (name: "tempCalibration", type: "decimal", title: "<b>Temperature Calibration</b>", description: "<i>Adjust measured temperature range: -9..9 C</i>", defaultValue: 0.0, range: "-9.0..9.0")
             
             if (getModelGroup() in ['AVATTO2'])  {
@@ -178,7 +175,7 @@ def isAVATTO2()    { return device.getDataValue('manufacturer') in ['_TZE204_lzr
     '3' : 'e3'
 ]
 
-@Field static final Map sensorOptions = [    // BEOK - only in and out; AVATTO + both
+@Field static final Map sensorOptions = [   
     '0' : 'in',
     '1' : 'out',
     '2' : 'both'
@@ -596,7 +593,7 @@ def processPresets( dp, data ) {
     }
     //temporary_manual
     //else if (data == 3) { //holiday
-    //    mode = "off"    // BRT-100 'holiday' preset is matched to 'off' mode!
+    //    mode = "off"
     //    preset = "holiday"
   //  }
     else {
@@ -614,37 +611,33 @@ def processPresets( dp, data ) {
     logInfo "Presets: mode = ${mode} preset = ${preset}"
 }
 
-def processTuyaModes3( dp, data ) {
-    // dp = 0x0402 : // preset for moes or mode
-    // dp = 0x0403 : // preset for moes    
-    if (getModelGroup() in ['BRT-100', 'HY367', 'HY369']) {    // BRT-100 ?    KK: TODO!
-        def mode
-        if (data == 0) { mode = "auto" } //schedule
-        else if (data == 1) { mode = "heat" } //manual
-        else if (data == 2) { mode = "off" } //away
-        else {
-            logWarn "processTuyaModes3: unknown mode: ${data}"
-            return
-        }
-        logInfo "mode is: ${mode}"
-        // TODO - - change thremostatMode depending on mode ?
+/* if this method is not used at all - DELETE
+def processTuyaModes3(dp, data) {
+    if (getModelGroup() != 'AVATTO2') {
+        logWarn "processTuyaModes3: Unsupported model group '${getModelGroup()}'. Processing skipped."
+        return
     }
-    else {    // NOT TESTED !!
-        def preset
-        if (dp == 0x02) { // 0x0402
-            preset = "auto" 
-        }
-        else if (dp == 0x03) { // 0x0403
-            preset = "program"
-        }
-        else {
-            logWarn "processTuyaMode3: unknown preset: dp=${dp} data=${data}"
+
+    def mode
+    switch (data) {
+        case 0:
+            mode = "auto" // schedule
+            break
+        case 1:
+            mode = "heat" // manual
+            break
+        case 2:
+            mode = "off" // away
+            break
+        default:
+            logWarn "processTuyaModes3: Unknown mode received. dp=${dp}, data=${data}"
             return
-        }
-        logInfo "preset is: ${preset}"
-        // TODO - - change preset ?
     }
+
+    logInfo "AVATTO2 mode is: ${mode}"
+    sendEvent(name: "thermostatMode", value: mode)
 }
+*/
 
 private int getTuyaAttributeValue(ArrayList _data) {
     int retValue = 0
@@ -755,7 +748,7 @@ def sendTuyaHeatingSetpoint( temperature ) {
     //
     Map lastTxMap = stringToJsonMap( state.lastTx )
     lastTxMap.isSetPointReq = true
-    lastTxMap.setPoint = temperature    // BEOK - float value!
+    lastTxMap.setPoint = temperature
     state.lastTx = mapToJsonString( lastTxMap )    // save everything back to state.lastTx
     //
     runIn(3, setpointReceiveCheck)
@@ -1119,8 +1112,7 @@ def setHealthStatusOnline() {
 /**
  * called every 60 minutes
  * Checks the health status of the device and sends an event if it is offline.
- * Also synchronizes the date and time if the device is a BEOK thermostat.
- *
+ * 
  * @return none
  */
 def deviceHealthCheck() {
@@ -1191,37 +1183,21 @@ def logInitializeRezults() {
 }
 
 // called by initialize() button
-void initializeVars( boolean fullInit = true ) {
-    logInfo "InitializeVars()... fullInit = ${fullInit}"
-    if (fullInit == true ) {
+void initializeVars(boolean fullInit = true) {
+    logInfo "Initializing variables... Full Init = ${fullInit}"
+    if (fullInit) {
         state.clear()
         resetStats()
         state.driverVersion = driverVersionAndTimeStamp()
     }
-    if (device.currentValue('healthStatus') == null) sendHealthStatusEvent('unknown')    
-    //
-    setLastRx( NOT_SET, NOT_SET)    // -1
-    state.packetID = 0
-    //
-    if (fullInit == true || state.lastThermostatMode == null) state.lastThermostatMode = "unknown"
-    if (fullInit == true || state.lastThermostatOperatingState == null) state.lastThermostatOperatingState = "unknown"
-    if (fullInit == true || state.notPresentCounter == null) state.notPresentCounter = 0
-    //
-    if (fullInit == true || settings?.logEnable == null) device.updateSetting("logEnable", true)
-    if (fullInit == true || settings?.txtEnable == null) device.updateSetting("txtEnable", true)
-    if (fullInit == true || settings?.forceManual == null) device.updateSetting("forceManual", false)    
-    if (fullInit == true || settings?.resendFailed == null) device.updateSetting("resendFailed", false)    
-   // if (fullInit == true || settings?.minTemp == null) device.updateSetting("minTemp", [value: 5 , type:"number"])    
-    if (fullInit == true || settings?.maxTemp == null) device.updateSetting("maxTemp", [value: 35 , type:"number"])
-    if (fullInit == true || settings?.tempCeiling == null) device.updateSetting("tempCeiling", [value: 35 , type:"number"])
-    if (fullInit == true || settings?.tempCalibration == null) device.updateSetting("tempCalibration", [value:0.0, type:"decimal"])
-   // if (fullInit == true || settings?.hysteresis == null) device.updateSetting("hysteresis", [value:1.0, type:"decimal"])
-    //if (fullInit == true || settings?.sound == null) device.updateSetting("sound", true)    
-    if (fullInit == true || settings?.frostProtection == null) device.updateSetting("frostProtection", true)    
-    if (fullInit == true || settings?.brightness == null) device.updateSetting("brightness", [value:"3", type:"enum"])
-    if (fullInit == true || settings?.homeKitCompatibility == null) device.updateSetting("homeKitCompatibility", true)    
-    
-    //
+    state.notPresentCounter = state.notPresentCounter ?: 0
+    state.packetID = state.packetID ?: 0
+    state.lastThermostatMode = state.lastThermostatMode ?: "unknown"
+    state.lastThermostatOperatingState = state.lastThermostatOperatingState ?: "unknown"
+
+    // Default preferences
+    settings?.each { key, value -> settings[key] = value ?: defaultSettings[key] }
+    logInfo "Variables initialized."
 }
 
 
@@ -1423,19 +1399,8 @@ def childLock( mode ) {
 }
 
 /*def windowOpenDetection( mode ) { -NOT IMPLEMENTED for AVATTO2
-    ArrayList<String> cmds = []
-    def dp
-    //if (getModelGroup() in ["TRV07"]) {dp = "08"}
-    //else {
-        if (settings?.txtEnable) log.warn "${device.displayName} Window Open Detection mode: ${mode} is not supported or not implemented for modelGroup${getModelGroup()}"
-    //}
-    // TODO - check childLock for MOES
-    if (mode == "off") {cmds += sendTuyaCommand(dp, DP_TYPE_BOOL, "00")}
-    else if (mode == "on") {cmds += sendTuyaCommand(dp, DP_TYPE_BOOL, "01")}
-    else {logWarn "unsupported Window Open Detection mode ${mode} !"}
-    logInfo "sending Window Open Detectio mode : ${mode}"
-    sendZigbeeCommands( cmds )    
-}*/
+		}*/
+
 
 def setBrightness( bri ) {
     ArrayList<String> cmds = []
@@ -1664,21 +1629,15 @@ def isDuplicated( int dp, int fncmd ) {
 
 //-------------------------------- LOGGING METHODS ----------------------------------------------------------
 def logDebug(msg) {
-    if (settings?.logEnable == null || settings?.logEnable == true) {
-        log.debug "${device.displayName} " + msg
-    }
+    if (settings?.logEnable) log.debug "${device.displayName} ${msg}"
 }
 
 def logWarn(msg) {
-    if (settings?.txtEnable == null || settings?.txtEnable == true) {
-        log.warn "${device.displayName} " + msg
-    }
+    if (settings?.txtEnable) log.warn "${device.displayName} ${msg}"
 }
 
 def logInfo(msg) {
-    if (settings?.txtEnable == null || settings?.txtEnable == true) {
-        log.info "${device.displayName} " + msg
-    }
+    if (settings?.txtEnable) log.info "${device.displayName} ${msg}"
 }
 //----------------------------END OF LOGGING METHODS ------------------------------------------------------------
 
